@@ -502,92 +502,120 @@ function LineChart({points}:{points:{label:string;value:number}[]}) {
 /* ── VIEW: GRÁFICOS & CAC ── */
 function ViewCharts({metrics}:{metrics:Metrics|null}) {
   const {isMobile} = useBP();
-  const cacSin=15.00,cacCon=0.42;
-  const roi=Math.round(((MAT_USD-cacCon)/cacCon)*100);
-  const fmt=(n:number)=>new Intl.NumberFormat("es-EC",{style:"currency",currency:"USD",maximumFractionDigits:0}).format(n);
-  const weekBars=[
-    {label:"Lun",value:47,color:"#0256A0"},{label:"Mar",value:62,color:"#0256A0"},
-    {label:"Mié",value:55,color:"#0256A0"},{label:"Jue",value:71,color:"#99CA3C"},
-    {label:"Vie",value:83,color:"#99CA3C"},{label:"Sáb",value:34,color:"#FF5421"},
-    {label:"Dom",value:19,color:"#FF5421"},
-  ];
-  const careerSlices=[
-    {label:"Ing. Sistemas",  pct:26,color:"#0256A0"},
-    {label:"Administración", pct:22,color:"#99CA3C"},
-    {label:"Psicología",     pct:18,color:"#6d3bbd"},
-    {label:"Derecho",        pct:15,color:"#FF5421"},
-    {label:"Med. Vet.",      pct:10,color:"#c87000"},
-    {label:"Otras",          pct:9, color:"#8a9bb5"},
-  ];
-  const growthLine=[
-    {label:"Sem 1",value:23},{label:"Sem 2",value:38},
-    {label:"Sem 3",value:52},{label:"Sem 4",value:67},{label:"Hoy",value:83},
-  ];
-  const cacCards=[
-    {l:"CAC sin SKY",   v:`$${cacSin.toFixed(2)}`, c:"var(--ute-orange)", i:"📉", s:"Costo por lead manual"},
-    {l:"CAC con SKY",   v:`$${cacCon.toFixed(2)}`, c:"#4a8c00",           i:"🎯", s:"Costo por lead automático"},
-    {l:"LTV matrícula", v:fmt(MAT_USD),             c:"#0256A0",           i:"🎓", s:"Valor de vida del cliente"},
-    {l:"ROI con SKY",   v:`${roi.toLocaleString()}%`,c:"#6d3bbd",          i:"💹", s:"Retorno de inversión"},
-  ];
+  const [bar,setBar] = useState(false);
+  useEffect(()=>{const t=setTimeout(()=>setBar(true),500);return()=>clearTimeout(t);},[]);
+
+  const total   = metrics?.total_leads ?? 0;
+  const calif   = metrics?.leads_calificados ?? 0;
+  const visitas = metrics?.visitas_solicitadas ?? 0;
+  const mats    = metrics?.matriculas_iniciadas ?? 0;
+  const escrib  = metrics?.leads_escribieron ?? 0;
+  const tasa    = metrics?.tasa_calificacion ?? 0;
+
+  const skyMes  = 597;
+  const cacReal = total > 0 ? (skyMes / total).toFixed(2) : "—";
+  const tasaV   = calif > 0 ? Math.round(visitas / calif * 100) : 0;
+  const tasaM   = visitas > 0 ? Math.round(mats / visitas * 100) : 0;
+
   const pad = isMobile ? "14px 14px" : "22px 24px";
+
+  const realCards = [
+    {l:"Leads en CRM",         v: total > 0 ? String(total) : "—",       c:"#0256A0", i:"👥", s:"Registrados en Pipedrive"},
+    {l:"CAC real con SKY",     v: total > 0 ? `$${cacReal}` : "—",        c:"#4a8c00", i:"🎯", s:`$${skyMes} ÷ ${total || "?"} leads`},
+    {l:"Tasa de calificación", v: escrib > 0 ? `${tasa}%` : "—",          c:"#6d3bbd", i:"📊", s:"Leads calificados / total"},
+    {l:"De visita a matrícula",v: tasaM > 0 ? `${tasaM}%` : "—",          c:"#c87000", i:"🎓", s:"Conversión en matrícula"},
+  ];
+
+  const funnelSteps = [
+    {l:"Escribieron a SKY",    v:escrib,  c:"#0256A0", max:escrib||1},
+    {l:"Calificados (5 preg)", v:calif,   c:"#99CA3C", max:escrib||1},
+    {l:"Visita solicitada",    v:visitas, c:"#FF5421", max:calif||1},
+    {l:"Matrícula iniciada",   v:mats,    c:"#6d3bbd", max:visitas||1},
+  ];
+
   return (
     <div>
-      <TopBar title="Gráficos & CAC" sub="Costo de adquisición, conversión por carrera y crecimiento de leads"/>
+      <TopBar title="Métricas reales" sub="Datos calculados en tiempo real desde Pipedrive CRM · Sin datos inventados"/>
       <div className="page-body">
+
+        {/* 4 tiles — all real */}
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:12,marginBottom:16}}>
-          {cacCards.map((c,i)=>(
+          {realCards.map((c,i)=>(
             <div key={c.l} className={`metric-tile fade-in d${i+1}`}>
               <div style={{fontSize:"1.25rem",marginBottom:10}}>{c.i}</div>
               <div style={{fontSize:isMobile?"1.5rem":"1.9rem",fontWeight:900,letterSpacing:"-.04em",color:c.c,marginBottom:4,lineHeight:1}}>{c.v}</div>
               <div style={{fontSize:isMobile?".7rem":".78rem",fontWeight:600,color:"var(--text)"}}>{c.l}</div>
-              <div style={{fontSize:".64rem",color:"var(--text-sub)",marginTop:2}}>{c.s}</div>
+              <div style={{fontSize:".62rem",color:"var(--text-sub)",marginTop:2}}>{c.s}</div>
             </div>
           ))}
         </div>
-        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:12}}>
-          <div className="card fade-in d2" style={{padding:pad}}>
-            <div style={{fontSize:".6rem",fontWeight:700,letterSpacing:".12em",color:"var(--text-sub)",marginBottom:3}}>LEADS POR DÍA DE SEMANA</div>
-            <div style={{fontSize:".71rem",color:"var(--text-light)",marginBottom:18}}>Viernes pico · fin de semana baja</div>
-            <BarChart data={weekBars}/>
-          </div>
-          <div className="card fade-in d3" style={{padding:pad}}>
-            <div style={{fontSize:".6rem",fontWeight:700,letterSpacing:".12em",color:"var(--text-sub)",marginBottom:3}}>LEADS POR CARRERA</div>
-            <div style={{fontSize:".71rem",color:"var(--text-light)",marginBottom:18}}>Distribución de interés por programa</div>
-            <DonutChart slices={careerSlices} centerTop={String(metrics?.total_leads??371)} centerBot="leads totales"/>
+
+        {/* Conversion funnel — real data */}
+        <div className="card fade-in d2" style={{padding:pad,marginBottom:12}}>
+          <div style={{fontSize:".6rem",fontWeight:700,letterSpacing:".12em",color:"var(--text-sub)",marginBottom:4}}>TASAS DE CONVERSIÓN — DATOS REALES</div>
+          <div style={{fontSize:".71rem",color:"var(--text-light)",marginBottom:18}}>Calculado desde Pipedrive · Se actualiza cada 15 segundos</div>
+          <div style={{display:"flex",flexDirection:"column",gap:16}}>
+            {funnelSteps.map(row=>{
+              const p = row.max > 0 ? Math.min(Math.round(row.v / row.max * 100), 100) : 0;
+              return (
+                <div key={row.l}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:7}}>
+                    <span style={{fontSize:".76rem",color:"var(--text-sub)"}}>{row.l}</span>
+                    <div style={{display:"flex",gap:8,alignItems:"baseline"}}>
+                      <span style={{fontSize:".92rem",fontWeight:800,color:row.c}}>{row.v}</span>
+                      <span style={{fontSize:".6rem",color:"var(--text-light)"}}>{p}%</span>
+                    </div>
+                  </div>
+                  <div className="bar-track">
+                    <div className="bar-fill" style={{width:bar?`${p}%`:"0%",background:`linear-gradient(90deg,${row.c}55,${row.c})`}}/>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
-        <div className="card fade-in d3" style={{padding:pad,marginBottom:12}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16,flexWrap:"wrap",gap:8}}>
-            <div>
-              <div style={{fontSize:".6rem",fontWeight:700,letterSpacing:".12em",color:"var(--text-sub)",marginBottom:2}}>CRECIMIENTO SEMANAL DE LEADS CALIFICADOS</div>
-              <div style={{fontSize:".71rem",color:"var(--text-light)"}}>Tendencia acumulada desde activación de SKY</div>
-            </div>
-            <div style={{display:"flex",alignItems:"center",gap:7}}>
-              <div style={{width:18,height:2.5,borderRadius:2,background:"#0256A0"}}/>
-              <span style={{fontSize:".65rem",color:"var(--text-sub)"}}>Leads calificados</span>
-            </div>
-          </div>
-          <LineChart points={growthLine}/>
+
+        {/* Conversion rate cards */}
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:12,marginBottom:12}}>
+          {[
+            {l:"Resp. → Calificado",  num:calif,  den:escrib,  c:"#0256A0", desc:"De los que escriben, cuántos completan las 5 preguntas"},
+            {l:"Calificado → Visita", num:visitas, den:calif,   c:"#FF5421", desc:"De los calificados, cuántos agendan visita al campus"},
+            {l:"Visita → Matrícula",  num:mats,    den:visitas, c:"#6d3bbd", desc:"De las visitas agendadas, cuántos inician matrícula"},
+          ].map((r,i)=>{
+            const p = r.den > 0 ? Math.round(r.num / r.den * 100) : 0;
+            const sinDatos = r.den === 0;
+            return (
+              <div key={r.l} className={`card fade-in d${i+1}`} style={{padding:pad}}>
+                <div style={{fontSize:".6rem",fontWeight:700,letterSpacing:".1em",color:"var(--text-sub)",marginBottom:12}}>{r.l.toUpperCase()}</div>
+                {sinDatos ? (
+                  <div style={{fontSize:".72rem",color:"var(--text-light)",fontStyle:"italic",lineHeight:1.6,marginBottom:6}}>Sin estadísticas disponibles temporalmente</div>
+                ) : (
+                  <>
+                    <div style={{fontSize:"2.4rem",fontWeight:900,letterSpacing:"-.04em",color:r.c,lineHeight:1,marginBottom:6}}>{p}%</div>
+                    <div style={{fontSize:".72rem",color:"var(--text-sub)",lineHeight:1.5}}>{r.desc}</div>
+                    <div style={{marginTop:10,fontSize:".62rem",color:"var(--text-light)"}}>{r.num} de {r.den} leads</div>
+                  </>
+                )}
+              </div>
+            );
+          })}
         </div>
-        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12}}>
-          <div className="card card-orange fade-in d2" style={{padding:pad}}>
-            <div style={{fontSize:".6rem",fontWeight:700,letterSpacing:".12em",color:"var(--ute-orange)",marginBottom:14}}>SIN SKY — PROCESO MANUAL</div>
-            {[{l:"Costo asesor/mes",v:"$600"},{l:"Leads respondidos/mes",v:"~30"},{l:"CAC promedio",v:"$20.00"},{l:"Tasa de conversión",v:"3–5%"},{l:"Matrículas/mes",v:"1–2"}].map((r,i,arr)=>(
-              <div key={r.l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:i<arr.length-1?"1px solid rgba(255,84,33,.1)":"none"}}>
-                <span style={{fontSize:".74rem",color:"var(--text-sub)"}}>{r.l}</span>
-                <span style={{fontSize:".8rem",fontWeight:700,color:"var(--ute-orange)"}}>{r.v}</span>
-              </div>
-            ))}
-          </div>
-          <div className="card card-green fade-in d3" style={{padding:pad}}>
-            <div style={{fontSize:".6rem",fontWeight:700,letterSpacing:".12em",color:"#4a8c00",marginBottom:14}}>CON SKY — AUTOMATIZADO</div>
-            {[{l:"Costo SKY/mes",v:"$597"},{l:"Leads respondidos/mes",v:"300+"},{l:"CAC promedio",v:"$0.42"},{l:"Tasa de conversión",v:"12–15%"},{l:"Matrículas/mes",v:"36–45"}].map((r,i,arr)=>(
-              <div key={r.l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:i<arr.length-1?"1px solid rgba(153,202,60,.1)":"none"}}>
-                <span style={{fontSize:".74rem",color:"var(--text-sub)"}}>{r.l}</span>
-                <span style={{fontSize:".8rem",fontWeight:700,color:"#4a8c00"}}>{r.v}</span>
-              </div>
-            ))}
-          </div>
+
+        {/* Performance summary — real data only */}
+        <div className="card card-blue fade-in d3" style={{padding:pad}}>
+          <div style={{fontSize:".6rem",fontWeight:700,letterSpacing:".12em",color:"var(--ute-blue)",marginBottom:14}}>RESUMEN DE RENDIMIENTO — DATOS REALES</div>
+          {[
+            {l:"Leads atendidos (Pipedrive)",  v: total > 0 ? String(total) : "Sin estadísticas disponibles temporalmente"},
+            {l:"Costo por lead (CAC real)",    v: total > 0 ? `$${cacReal}` : "Sin estadísticas disponibles temporalmente"},
+            {l:"Tasa de calificación",         v: escrib > 0 ? `${tasa}%` : "Sin estadísticas disponibles temporalmente"},
+            {l:"Calificado → Visita",          v: tasaV > 0 ? `${tasaV}%` : "Sin estadísticas disponibles temporalmente"},
+            {l:"Visita → Matrícula",           v: tasaM > 0 ? `${tasaM}%` : "Sin estadísticas disponibles temporalmente"},
+          ].map((r,i,arr)=>(
+            <div key={r.l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:i<arr.length-1?"1px solid rgba(2,86,160,.08)":"none",flexWrap:"wrap",gap:4}}>
+              <span style={{fontSize:".76rem",color:"var(--text-sub)"}}>{r.l}</span>
+              <span style={{fontSize:r.v.startsWith("Sin")?".66rem":".82rem",fontWeight:700,color:r.v.startsWith("Sin")?"var(--text-light)":"var(--ute-blue)",fontStyle:r.v.startsWith("Sin")?"italic":"normal"}}>{r.v}</span>
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -597,47 +625,72 @@ function ViewCharts({metrics}:{metrics:Metrics|null}) {
 /* ── VIEW: ROI ── */
 function ViewROI({metrics}:{metrics:Metrics|null}) {
   const {isMobile} = useBP();
-  const q=metrics?.leads_calificados??12,e=Math.max(1,Math.round(q*.15));
-  const roi=useCountUp(e*MAT_USD,2000);
-  const fmt=(n:number)=>new Intl.NumberFormat("es-EC",{style:"currency",currency:"USD",maximumFractionDigits:0}).format(n);
+  const q  = metrics?.leads_calificados ?? 0;
+  const v  = metrics?.visitas_solicitadas ?? 0;
+  const m  = metrics?.matriculas_iniciadas ?? 0;
+  const esc = metrics?.leads_escribieron ?? 0;
+  const noData = !metrics || q === 0;
   const pad = isMobile ? "14px 14px" : "22px 24px";
+
+  const noStat = "Sin estadísticas disponibles temporalmente";
+
   return (
     <div>
-      <TopBar title="ROI & Proyecciones" sub="Retorno de inversión proyectado con SKY activo este mes"/>
+      <TopBar title="ROI & Proyecciones" sub="Datos reales de SKY · Las proyecciones se calculan desde métricas reales"/>
       <div className="page-body">
-        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(3,1fr)",gap:12,marginBottom:16}}>
+
+        {/* Real metrics tiles */}
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:12,marginBottom:16}}>
           {[
-            {l:"Leads calificados",    v:`${q}`,   c:"#0256A0",i:"✅",s:"Por SKY este mes"},
-            {l:"Matrículas estimadas", v:`${e}`,   c:"#4a8c00",i:"🎓",s:"Tasa 15% conversión"},
-            {l:"Ingreso proyectado",   v:fmt(roi), c:"#0256A0",i:"💰",s:"× $3,200 / matrícula"},
+            {l:"Leads calificados",   v: q > 0 ? String(q) : "—",   c:"#0256A0", i:"✅", s:"Completaron las 5 preguntas"},
+            {l:"Visitas agendadas",   v: v > 0 ? String(v) : "—",   c:"#FF5421", i:"🗓", s:"Campus Quito Matriz"},
+            {l:"Matrículas iniciadas",v: m > 0 ? String(m) : "—",   c:"#6d3bbd", i:"🚀", s:"En proceso de matrícula"},
+            {l:"Tasa de cierre",      v: q > 0 && m > 0 ? `${Math.round(m/q*100)}%` : "—", c:"#4a8c00", i:"💹", s:"Leads → Matrícula"},
           ].map((c,i)=>(
-            <div key={c.l} className={`metric-tile fade-in d${i+1} ${i===2?"card-blue":""}`} style={isMobile&&i===2?{gridColumn:"1/-1"}:{}}>
-              <div style={{fontSize:"1.4rem",marginBottom:10}}>{c.i}</div>
-              <div style={{fontSize:i===2?(isMobile?"1.6rem":"1.8rem"):(isMobile?"1.9rem":"2.6rem"),fontWeight:900,letterSpacing:"-.03em",color:c.c,lineHeight:1,marginBottom:6}}>{c.v}</div>
-              <div style={{fontSize:isMobile?".7rem":".8rem",fontWeight:600,color:"var(--text)"}}>{c.l}</div>
-              <div style={{fontSize:".66rem",color:"var(--text-sub)",marginTop:2}}>{c.s}</div>
+            <div key={c.l} className={`metric-tile fade-in d${i+1}`}>
+              <div style={{fontSize:"1.3rem",marginBottom:10}}>{c.i}</div>
+              <div style={{fontSize:isMobile?"1.9rem":"2.4rem",fontWeight:900,letterSpacing:"-.03em",color:c.c,lineHeight:1,marginBottom:6}}>{c.v}</div>
+              <div style={{fontSize:isMobile?".7rem":".78rem",fontWeight:600,color:"var(--text)"}}>{c.l}</div>
+              <div style={{fontSize:".64rem",color:"var(--text-sub)",marginTop:2}}>{c.s}</div>
             </div>
           ))}
         </div>
-        <div className="card fade-in d2" style={{overflow:"hidden",marginBottom:14}}>
-          <div style={{padding:"14px 20px",borderBottom:"1px solid var(--border)",display:"grid",gridTemplateColumns:"1.8fr 1fr 1fr",background:"var(--bg)"}}>
-            <span style={{fontSize:".6rem",fontWeight:700,letterSpacing:".1em",color:"var(--text-sub)"}}>MÉTRICA</span>
-            <span style={{fontSize:".6rem",fontWeight:700,letterSpacing:".1em",color:"var(--ute-orange)"}}>SIN SKY</span>
-            <span style={{fontSize:".6rem",fontWeight:700,letterSpacing:".1em",color:"#4a8c00"}}>CON SKY</span>
+
+        {/* Funnel conversion rates — real */}
+        <div className="card fade-in d2" style={{padding:pad,marginBottom:14}}>
+          <div style={{fontSize:".6rem",fontWeight:700,letterSpacing:".12em",color:"var(--text-sub)",marginBottom:4}}>CONVERSIÓN REAL POR ETAPA</div>
+          <div style={{fontSize:".71rem",color:"var(--text-light)",marginBottom:18}}>Calculado desde Pipedrive en tiempo real</div>
+          <div style={{display:"flex",flexDirection:"column",gap:16}}>
+            {[
+              {l:"Escribieron → Calificado", num:q,   den:esc,  c:"#0256A0"},
+              {l:"Calificado → Visita",      num:v,   den:q,    c:"#FF5421"},
+              {l:"Visita → Matrícula",       num:m,   den:v,    c:"#6d3bbd"},
+            ].map(row=>{
+              const p = row.den > 0 ? Math.min(Math.round(row.num / row.den * 100), 100) : 0;
+              return (
+                <div key={row.l}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:7}}>
+                    <span style={{fontSize:".76rem",color:"var(--text-sub)"}}>{row.l}</span>
+                    {row.den > 0
+                      ? <div style={{display:"flex",gap:8,alignItems:"baseline"}}>
+                          <span style={{fontSize:".92rem",fontWeight:800,color:row.c}}>{row.num}</span>
+                          <span style={{fontSize:".6rem",color:"var(--text-light)"}}>{p}%</span>
+                        </div>
+                      : <span style={{fontSize:".66rem",color:"var(--text-light)",fontStyle:"italic"}}>{noStat}</span>
+                    }
+                  </div>
+                  <div className="bar-track">
+                    <div className="bar-fill" style={{width:`${p}%`,background:`linear-gradient(90deg,${row.c}55,${row.c})`}}/>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-          {[
-            {l:"Tiempo de respuesta",   b:"+28 horas",   a:"< 10 segundos"},
-            {l:"Disponibilidad",        b:"L-V 8AM-5PM", a:"24/7 · 365 días"},
-            {l:"Leads respondidos/mes", b:"~5 manuales", a:`${q} automáticos`},
-            {l:"Costo por lead",        b:"$12-18",       a:"< $0.50"},
-            {l:"Ingreso proyectado",    b:"$0",           a:fmt(e*MAT_USD)},
-          ].map((r,i)=>(
-            <div key={r.l} style={{display:"grid",gridTemplateColumns:"1.8fr 1fr 1fr",padding:isMobile?"10px 16px":"14px 24px",borderBottom:i<4?"1px solid var(--border)":"none",background:i%2?"var(--bg)":"var(--surface)"}}>
-              <span style={{fontSize:isMobile?".74rem":".8rem",color:"var(--text-sub)"}}>{r.l}</span>
-              <span style={{fontSize:isMobile?".74rem":".82rem",fontWeight:700,color:"var(--ute-orange)"}}>{r.b}</span>
-              <span style={{fontSize:isMobile?".74rem":".82rem",fontWeight:700,color:"#4a8c00"}}>{r.a}</span>
-            </div>
-          ))}
+        </div>
+
+        {/* Note about projections */}
+        <div style={{padding:"14px 18px",borderRadius:12,background:"rgba(2,86,160,.04)",border:"1px solid rgba(2,86,160,.12)",fontSize:".74rem",color:"var(--text-sub)",lineHeight:1.7}}>
+          ℹ️ Las métricas anteriores son <strong>datos reales</strong> de Pipedrive. Para proyecciones de ingresos, consulte directamente con el equipo de Scale Solutions con los datos actualizados del período.
         </div>
       </div>
     </div>
@@ -699,44 +752,49 @@ function ViewFunnel({metrics}:{metrics:Metrics|null}) {
 function ViewCompare() {
   const {isMobile} = useBP();
   const rows=[
-    {l:"Tiempo de respuesta",   b:"28+ horas",       a:"< 10 segundos",     p:99},
-    {l:"Cobertura horaria",     b:"L-V 8AM-5PM",    a:"24/7 · 365 días",   p:100},
-    {l:"Leads respondidos/mes", b:"5-10 manuales",  a:"100+ automáticos",  p:95},
-    {l:"Calificación de leads", b:"Solo por llamada",a:"Automático en chat",p:90},
-    {l:"Entrada al CRM",        b:"Manual (si acaso)",a:"Automático",       p:100},
-    {l:"Follow-ups",            b:"Ninguno",         a:"D+1, D+3, D+7",    p:100},
-    {l:"Costo por lead",        b:"$12-18",          a:"< $0.50",           p:97},
+    {l:"Tiempo de respuesta",   b:"Horas o días",           a:"< 10 segundos"},
+    {l:"Cobertura horaria",     b:"Horario de oficina",      a:"24/7 · 365 días"},
+    {l:"Calificación de leads", b:"Solo por llamada/visita", a:"Automático en WhatsApp"},
+    {l:"Registro en CRM",       b:"Manual o no se hace",     a:"Automático en cada mensaje"},
+    {l:"Seguimiento",           b:"No sistemático",          a:"D+1, D+3, D+7 automático"},
+    {l:"Agenda de visitas",     b:"Coordinar manualmente",   a:"SKY agenda en la conversación"},
+    {l:"Notificaciones equipo", b:"No existe",               a:"Alerta inmediata por WhatsApp"},
   ];
   return (
     <div>
-      <TopBar title="Antes vs Ahora" sub="El impacto real de implementar SKY en admisiones UTE"/>
+      <TopBar title="Antes vs Ahora" sub="Capacidades del proceso manual vs SKY automatizado"/>
       <div className="page-body">
+
+        {/* Disclaimer */}
+        <div style={{padding:"12px 16px",borderRadius:10,background:"rgba(255,84,33,.04)",border:"1px solid rgba(255,84,33,.15)",fontSize:".72rem",color:"var(--text-sub)",lineHeight:1.6,marginBottom:14}}>
+          ℹ️ La columna <strong>"Sin SKY"</strong> describe el proceso manual estándar de admisiones — no datos históricos específicos de UTE. La columna <strong>"Con SKY"</strong> describe las capacidades reales del sistema activo.
+        </div>
+
         <div className="card fade-in" style={{overflow:"hidden",marginBottom:16}}>
-          <div style={{display:"grid",gridTemplateColumns:isMobile?"1.5fr 1fr 1fr":"1.8fr 1fr 1fr 80px",padding:isMobile?"10px 12px":"12px 24px",background:"var(--bg)",borderBottom:"1px solid var(--border)"}}>
-            <span style={{fontSize:".6rem",fontWeight:700,letterSpacing:".1em",color:"var(--text-sub)"}}>MÉTRICA</span>
-            <span style={{fontSize:".6rem",fontWeight:700,letterSpacing:".1em",color:"var(--ute-orange)"}}>SIN SKY</span>
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1.5fr 1fr 1fr":"1.8fr 1fr 1fr",padding:isMobile?"10px 12px":"12px 24px",background:"var(--bg)",borderBottom:"1px solid var(--border)"}}>
+            <span style={{fontSize:".6rem",fontWeight:700,letterSpacing:".1em",color:"var(--text-sub)"}}>CAPACIDAD</span>
+            <span style={{fontSize:".6rem",fontWeight:700,letterSpacing:".1em",color:"var(--ute-orange)"}}>SIN AUTOMATIZAR</span>
             <span style={{fontSize:".6rem",fontWeight:700,letterSpacing:".1em",color:"#4a8c00"}}>CON SKY</span>
-            {!isMobile&&<span style={{fontSize:".6rem",fontWeight:700,letterSpacing:".1em",color:"var(--text-sub)",textAlign:"right"}}>MEJORA</span>}
           </div>
           {rows.map((r,i)=>(
-            <div key={r.l} style={{display:"grid",gridTemplateColumns:isMobile?"1.5fr 1fr 1fr":"1.8fr 1fr 1fr 80px",padding:isMobile?"10px 12px":"15px 24px",borderBottom:i<rows.length-1?"1px solid var(--border)":"none",background:i%2?"var(--bg)":"var(--surface)",transition:"background .15s"}}>
+            <div key={r.l} style={{display:"grid",gridTemplateColumns:isMobile?"1.5fr 1fr 1fr":"1.8fr 1fr 1fr",padding:isMobile?"10px 12px":"15px 24px",borderBottom:i<rows.length-1?"1px solid var(--border)":"none",background:i%2?"var(--bg)":"var(--surface)",transition:"background .15s"}}>
               <span style={{fontSize:isMobile?".72rem":".82rem",color:"var(--text-sub)"}}>{r.l}</span>
-              <span style={{fontSize:isMobile?".72rem":".82rem",fontWeight:700,color:"var(--ute-orange)"}}>{r.b}</span>
+              <span style={{fontSize:isMobile?".72rem":".82rem",fontWeight:600,color:"var(--ute-orange)"}}>{r.b}</span>
               <span style={{fontSize:isMobile?".72rem":".82rem",fontWeight:700,color:"#4a8c00"}}>{r.a}</span>
-              {!isMobile&&<div style={{textAlign:"right"}}><span style={{fontSize:".7rem",fontWeight:800,padding:"2px 9px",borderRadius:99,background:"rgba(153,202,60,.1)",border:"1px solid rgba(153,202,60,.22)",color:"#4a8c00"}}>+{r.p}%</span></div>}
             </div>
           ))}
         </div>
+
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12}}>
           <div className="card card-orange" style={{padding:isMobile?"20px 16px":"28px 24px",textAlign:"center"}}>
-            <div style={{fontSize:isMobile?"2.8rem":"3.5rem",fontWeight:900,color:"var(--ute-orange)",letterSpacing:"-.04em",marginBottom:8}}>28h</div>
-            <div style={{fontSize:".88rem",fontWeight:700,color:"var(--text)",marginBottom:6}}>Sin SKY — tiempo de respuesta</div>
-            <div style={{fontSize:".74rem",color:"var(--text-sub)",lineHeight:1.6}}>El 78% de los leads ya eligieron otra universidad para entonces</div>
+            <div style={{fontSize:isMobile?"2.4rem":"3rem",fontWeight:900,color:"var(--ute-orange)",letterSpacing:"-.04em",marginBottom:8}}>Horas</div>
+            <div style={{fontSize:".88rem",fontWeight:700,color:"var(--text)",marginBottom:6}}>Sin automatización</div>
+            <div style={{fontSize:".74rem",color:"var(--text-sub)",lineHeight:1.6}}>Un lead que no recibe respuesta rápida busca otra opción. El tiempo de respuesta define la conversión.</div>
           </div>
           <div className="card card-green" style={{padding:isMobile?"20px 16px":"28px 24px",textAlign:"center"}}>
-            <div style={{fontSize:isMobile?"2.8rem":"3.5rem",fontWeight:900,color:"#4a8c00",letterSpacing:"-.04em",marginBottom:8}}>8s</div>
-            <div style={{fontSize:".88rem",fontWeight:700,color:"var(--text)",marginBottom:6}}>Con SKY — tiempo de respuesta</div>
-            <div style={{fontSize:".74rem",color:"var(--text-sub)",lineHeight:1.6}}>10,080× más rápido que el proceso manual. Primero en responder, primero en convertir.</div>
+            <div style={{fontSize:isMobile?"2.4rem":"3rem",fontWeight:900,color:"#4a8c00",letterSpacing:"-.04em",marginBottom:8}}>{"< 10s"}</div>
+            <div style={{fontSize:".88rem",fontWeight:700,color:"var(--text)",marginBottom:6}}>Con SKY activo</div>
+            <div style={{fontSize:".74rem",color:"var(--text-sub)",lineHeight:1.6}}>SKY responde en menos de 10 segundos, califica el lead y lo registra en CRM automáticamente.</div>
           </div>
         </div>
       </div>
